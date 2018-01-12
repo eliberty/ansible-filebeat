@@ -1,6 +1,6 @@
 ---
 # The version of filebeat to install
-filebeat_version: 1.3.1
+filebeat_version: 6.1.1
 
 # `filebeat_config` is templated directly into filebeat.yml for the config.
 # You are expected to override this variable, as these configurations are
@@ -8,19 +8,56 @@ filebeat_version: 1.3.1
 # See https://github.com/elastic/beats/blob/master/filebeat/filebeat.yml for
 # an exhaustive list of configurations.
 filebeat_config:
-  filebeat:
-    prospectors:
-      - paths:
-          - /var/log/messages
-          - /var/log/*.log
-        input_type: log
-  output:
-    file:
-      path: /tmp/filebeat
-      filename: filebeat
-  logging:
-    to_syslog: true
-    level: error
+  filebeat.prospectors:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/*.log
+    tags: ['system']
+    fields:
+      log_type: system
+    exclude_files: ['php_errors.log', 'awslogs.log']
+
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/php_errors.log
+    tags: ['php', 'php_errors']
+    fields:
+      log_type: php_error
+    multiline:
+      pattern: '^\['
+      negate: true
+      match: before
+
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/*_api.log
+    fields:
+      log_type: api
+
+  filebeat.config.modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: true
+    #reload.period: 10s
+
+  setup.template.settings:
+    index.number_of_shards: 3
+  #tags: ["redpill"]
+  fields:
+    env: prod
+
+  output.logstash:
+    hosts: ["localhost:5044"]
+
+  logging.level: error
+
+
+
+filebeat_enabled_modules:
+  - nginx
+  - system
 
 # The contents of this variable will be placed into the `filebeat_ca_path`
 # This should either be set to a string containing your CA certificate or
@@ -41,9 +78,9 @@ filebeat_ssl_key_path: /etc/filebeat/ssl.key
 filebeat_gpg_url: https://packages.elastic.co/GPG-KEY-elasticsearch
 ## Debian
 filebeat_apt_repo_v1: "deb https://packages.elastic.co/beats/apt stable main"
-filebeat_apt_repo_v5: "deb https://artifacts.elastic.co/packages/5.x/apt stable main"
-filebeat_apt_repo: "{{ filebeat_version|version_compare('5', '<')|ternary(filebeat_apt_repo_v1, filebeat_apt_repo_v5) }}"
+filebeat_apt_repo_v6: "deb https://artifacts.elastic.co/packages/6.x/apt stable main"
+filebeat_apt_repo: "{{ filebeat_version|version_compare('6', '<')|ternary(filebeat_apt_repo_v1, filebeat_apt_repo_v6) }}"
 ## Redhat
 filebeat_repo_url_v1: https://packages.elastic.co/beats/yum/el/$basearch
-filebeat_repo_url_v5: https://artifacts.elastic.co/packages/5.x/yum
-filebeat_repo_url: "{{ filebeat_version|version_compare('5', '<')|ternary(filebeat_repo_url_v1, filebeat_repo_url_v5) }}"
+filebeat_repo_url_v6: https://artifacts.elastic.co/packages/6.x/yum
+filebeat_repo_url: "{{ filebeat_version|version_compare('6', '<')|ternary(filebeat_repo_url_v1, filebeat_repo_url_v6) }}"

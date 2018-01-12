@@ -12,6 +12,14 @@
   notify:
     - restart filebeat
 
+- name: install modules
+  template:
+    src: "modules/{{item}}.yml.j2"
+    dest: "/etc/filebeat/modules.d/{{item}}.yml.j2"
+  notify:
+    - restart filebeat
+  with_items: {{ filebeat_enabled_modules }}
+
 - name: copy ca certificate if required
   copy:
     content: "{{ filebeat_ca_cert }}"

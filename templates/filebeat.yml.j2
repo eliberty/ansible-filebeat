@@ -1,2 +1,63 @@
-# {{ ansible_managed }}
-{{ filebeat_config|to_yaml }}
+filebeat.prospectors:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/*.log
+  tags: ['system']
+  fields:
+    log_type: system
+  exclude_files: ['php_errors.log', 'awslogs.log']
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/php_errors.log
+  tags: ['php', 'php_errors']
+  fields:
+    log_type: php_error
+  multiline:
+    pattern: '^\['
+    negate: true
+    match: before
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/*_api.log
+  fields:
+    log_type: api
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: true
+  #reload.period: 10s
+
+setup.template.settings:
+  index.number_of_shards: 3
+  #index.codec: best_compression
+  #_source.enabled: false
+
+# transaction published.
+{% if filebeat_tags is defined %}
+tags: ["{{ filebeat_tags | join('","') }}"]
+{% endif %}
+
+{% if filebeat_fields is defined %}
+fields:
+{% for key, value in filebeat_fields.iteritems() %}
+    {{ key }}: {{ value }}
+{% endfor %}
+
+output.logstash:
+  hosts: ["ls-logstack.awstack:5044"]
+
+#================================ Logging =====================================
+
+# Sets log level. The default log level is info.
+# Available log levels are: critical, error, warning, info, debug
+#logging.level: debug
+
+# At debug level, you can selectively enable logging only for some components.
+# To enable all selectors use ["*"]. Examples of other selectors are "beat",
+# "publish", "service".
+#logging.selectors: ["*"]
